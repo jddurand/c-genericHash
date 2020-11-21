@@ -65,7 +65,7 @@ typedef struct genericHash {
     if (_keyIndFunctionp == NULL) {                                     \
       hashName = NULL;                                                  \
     } else {                                                            \
-      hashName = malloc(sizeof(genericHash_t));				\
+      hashName = (genericHash_t *) malloc(sizeof(genericHash_t));	\
       if (hashName != NULL) {						\
         hashName->wantedSubSize    = (thisWantedSubSize);               \
         hashName->keyIndFunctionp  = _keyIndFunctionp;			\
