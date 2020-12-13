@@ -309,13 +309,18 @@ static GENERICSTACK_INLINE short _GENERICSTACK_EXTEND(genericStack_t *stackp, si
     } else {
       /* Get the multiple of 2 that is >= wantedl */
       size_t heapl;
+#ifdef GENERICSTACK_PARANOID
       size_t previousHeapl;
+#endif
 
       /* https://www.geeksforgeeks.org/smallest-power-of-2-greater-than-or-equal-to-n/ */
       if (!(wantedl & (wantedl - 1))) {
         heapl = wantedl;
       } else {
-        previousHeapl = heapl = 1;
+#ifdef GENERICSTACK_PARANOID
+        previousHeapl =
+#endif
+          heapl = 1;
         while (heapl < wantedl) {
           /* We count on compiler to optimize (<<= 1, + twice etc.) */
           heapl *= 2;
@@ -325,8 +330,8 @@ static GENERICSTACK_INLINE short _GENERICSTACK_EXTEND(genericStack_t *stackp, si
             heapl = 0;
             break;
           }
-#endif
           previousHeapl = heapl;
+#endif
         }
       }
 
@@ -775,55 +780,55 @@ static GENERICSTACK_INLINE short _GENERICSTACK_SET_NA(genericStack_t *stackp, si
 /* Dump macro for development purpose. Fixed to stderr.                   */
 /* ====================================================================== */
 #if GENERICSTACK_HAVE_CUSTOM
-#define _GENERICSTACK_DUMP_CASE_CUSTOM(stackp,indice) case GENERICSTACKITEMTYPE_CUSTOM: fprintf(stderr, "Element[%3d/%3d] type     : CUSTOM\n", indice, GENERICSTACK_USED(stackp)); break;
+#define _GENERICSTACK_DUMP_CASE_CUSTOM(stackp,indice) case GENERICSTACKITEMTYPE_CUSTOM: fprintf(stderr, "Element[%3ld/%3ld] type     : CUSTOM\n", (unsigned long) indice, (unsigned long) GENERICSTACK_USED(stackp)); break;
 #else
 #define _GENERICSTACK_DUMP_CASE_CUSTOM(stackp,indice)
 #endif
-#define GENERICSTACK_DUMP(stackp) do {				\
-    int _i_for_dump;							\
+#define GENERICSTACK_DUMP(stackp) do {                                  \
+    size_t _i_for_dump;							\
     fprintf(stderr, "GENERIC STACK DUMP\n");				\
     fprintf(stderr, "------------------\n");				\
     fprintf(stderr, "Items                     : %p\n", stackp->items); \
     fprintf(stderr, "Heap items                : %p\n", stackp->heapItems); \
-    fprintf(stderr, "Initial Length            : %d\n", GENERICSTACK_INITIAL_LENGTH(stackp)); \
-    fprintf(stderr, "Heap Length               : %d\n", GENERICSTACK_HEAP_LENGTH(stackp)); \
-    fprintf(stderr, "Length                    : %d\n", GENERICSTACK_LENGTH(stackp)); \
-    fprintf(stderr, "Used:                     : %d\n", GENERICSTACK_USED(stackp)); \
+    fprintf(stderr, "Initial Length            : %ld\n", (unsigned long) GENERICSTACK_INITIAL_LENGTH(stackp)); \
+    fprintf(stderr, "Heap Length               : %ld\n", (unsigned long) GENERICSTACK_HEAP_LENGTH(stackp)); \
+    fprintf(stderr, "Length                    : %ld\n", (unsigned long) GENERICSTACK_LENGTH(stackp)); \
+    fprintf(stderr, "Used:                     : %ld\n", (unsigned long) GENERICSTACK_USED(stackp)); \
     fprintf(stderr, "Error?                    : %s\n", GENERICSTACK_ERROR(stackp) ? "yes" : "no"); \
     for (_i_for_dump = 0; _i_for_dump < GENERICSTACK_USED(stackp); _i_for_dump++) { \
       switch(GENERICSTACKITEMTYPE(stackp, _i_for_dump)) {		\
       case GENERICSTACKITEMTYPE_NA:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : NA\n", _i_for_dump, GENERICSTACK_USED(stackp));	\
+	fprintf(stderr, "Element[%3ld/%3ld] type     : NA\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp));	\
 	break;								\
       case GENERICSTACKITEMTYPE_CHAR:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : CHAR\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : CHAR\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_SHORT:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : SHORT\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : SHORT\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_INT:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : INT\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : INT\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_LONG:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : LONG\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : LONG\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_FLOAT:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : FLOAT\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : FLOAT\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_DOUBLE:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : DOUBLE\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : DOUBLE\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_PTR:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : PTR\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : PTR\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_ARRAY:					\
-	fprintf(stderr, "Element[%3d/%3d] type     : ARRAY\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : ARRAY\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       case GENERICSTACKITEMTYPE_LONG_DOUBLE:                            \
-	fprintf(stderr, "Element[%3d/%3d] type     : LONG DOUBLE\n", _i_for_dump, GENERICSTACK_USED(stackp)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : LONG DOUBLE\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp)); \
 	break;								\
       default:								\
-	fprintf(stderr, "Element[%3d/%3d] type     : %d\n", _i_for_dump, GENERICSTACK_USED(stackp), GENERICSTACKITEMTYPE(stackp, _i_for_dump)); \
+	fprintf(stderr, "Element[%3ld/%3ld] type     : %d\n", (unsigned long) _i_for_dump, (unsigned long) GENERICSTACK_USED(stackp), GENERICSTACKITEMTYPE(stackp, _i_for_dump)); \
 	break;								\
         _GENERICSTACK_DUMP_CASE_CUSTOM(stackp,_i_for_dump)           \
       }									\
