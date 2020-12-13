@@ -382,18 +382,22 @@ static GENERICSTACK_INLINE short _GENERICSTACK_INIT_SIZED(genericStack_t *stackp
 }
 
 static GENERICSTACK_INLINE void _GENERICSTACK_RESET(genericStack_t *stackp) {
-  if (stackp->heapItems != NULL) {
-    free(stackp->heapItems);
-    stackp->heapItems = NULL;
+  if (stackp != NULL) {
+    if (stackp->heapItems != NULL) {
+      free(stackp->heapItems);
+      stackp->heapItems = NULL;
+    }
+    stackp->usedl = stackp->heapl = stackp->lengthl = 0;
   }
-  stackp->usedl = stackp->heapl = stackp->lengthl = 0;
 }
 
 static GENERICSTACK_INLINE void _GENERICSTACK_FREE(genericStack_t *stackp) {
-  if (stackp->heapItems != NULL) {
-    free(stackp->heapItems);
+  if (stackp != NULL) {
+    if (stackp->heapItems != NULL) {
+      free(stackp->heapItems);
+    }
+    free(stackp);
   }
-  free(stackp);
 }
 
 static GENERICSTACK_INLINE genericStack_t *_GENERICSTACK_NEW() {
@@ -422,7 +426,9 @@ static GENERICSTACK_INLINE genericStack_t *_GENERICSTACK_NEW_SIZED(size_t length
 }
 
 static GENERICSTACK_INLINE void _GENERICSTACK_RELAX(genericStack_t *stackp) {
-  stackp->usedl = 0;
+  if (stackp != NULL) {
+    stackp->usedl = 0;
+  }
 }
 
 #ifdef GENERICSTACK_PARANOID
