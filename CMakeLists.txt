@@ -5,7 +5,7 @@ IF (NOT MYPACKAGEBOOTSTRAP_DONE)
 ENDIF ()
 MYPACKAGESTART ()
 
-MYPACKAGECONFIG(test/config.h.in test/config.h)
+MYPACKAGETESTCONFIG(test/config.h.in test/config.h)
 
 ###############
 # Executables #
@@ -26,7 +26,7 @@ MYPACKAGECHECK(genericHashTester)
 #############
 # Packaging #
 #############
-MYPACKAGEPACK("" "Generic Logger")
+MYPACKAGEPACK("" "Generic Hash")
 
 #########
 # Setup #
