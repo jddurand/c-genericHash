@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED (VERSION 3.0.0 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED (VERSION 3.15.0 FATAL_ERROR)
 PROJECT(genericStack VERSION 1.1.12 LANGUAGES C)
 IF (NOT MYPACKAGEBOOTSTRAP_DONE)
   INCLUDE ("3rdparty/github/cmake-utils/cmake/MyPackageBootstrap.cmake")
@@ -30,6 +30,12 @@ MYPACKAGECHECK(genericStackTesterMemset)
 MYPACKAGECHECK(genericStackTesterDefaultInitialStackMemset)
 MYPACKAGECHECK(genericStackTesterSmallInitialStackMemset)
 MYPACKAGECHECK(genericStackTesterNoInitialStackMemset)
+
+##########
+# Export #
+##########
+MYPACKAGECMAKEEXPORT()
+MYPACKAGEPKGCONFIGEXPORT()
 
 #############
 # Packaging #

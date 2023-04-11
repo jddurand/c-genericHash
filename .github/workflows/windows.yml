@@ -30,3 +30,7 @@ jobs:
 
     - name: Check
       run: nmake check VERBOSE=1
+
+    - name: Package
+      run: cpack
+
