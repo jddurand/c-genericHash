@@ -32,6 +32,9 @@ jobs:
     - name: Check
       run: make check VERBOSE=1
 
+    - name: Package
+      run: cpack
+
     - name: Look for dumps
       run: |
         find . -name "hs_err*log" -print -exec cat {} \;
