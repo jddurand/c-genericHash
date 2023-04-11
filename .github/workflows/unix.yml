@@ -33,7 +33,7 @@ jobs:
       run: make check VERBOSE=1
 
     - name: Package
-      run: make package VERBOSE=1
+      run: cpack
 
     - name: Look for dumps
       run: |
