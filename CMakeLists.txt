@@ -23,6 +23,12 @@ MYPACKAGEDEPENDENCY (genericLogger "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/github/
 #########
 MYPACKAGECHECK(genericHashTester)
 
+##########
+# Export #
+##########
+MYPACKAGECMAKEEXPORT()
+MYPACKAGEPKGCONFIGEXPORT()
+
 #############
 # Packaging #
 #############
