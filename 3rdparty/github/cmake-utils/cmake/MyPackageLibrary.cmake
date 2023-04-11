@@ -63,6 +63,7 @@ MACRO (MYPACKAGELIBRARY config_in config_out)
   IF (MYPACKAGE_DEBUG)
     MESSAGE (STATUS "[${PROJECT_NAME}-LIBRARY-DEBUG] Setting PUBLIC -D${PROJECT_NAME}_STATIC on ${PROJECT_NAME}")
   ENDIF ()
+  TARGET_COMPILE_DEFINITIONS(${PROJECT_NAME}_static PUBLIC -D${PROJECT_NAME}_STATIC)
   #
   # ... Tracing
   #
@@ -105,7 +106,7 @@ MACRO (MYPACKAGELIBRARY config_in config_out)
     #
     # On NetBSD, enable this platform features. This makes sure we always have "long long" btw.
     #
-    FOREACH (_target ${PROJECT_NAME}_objs ${PROJECT_NAME}_static_objs)
+    FOREACH (_target ${PROJECT_NAME}_objs ${PROJECT_NAME}_static_objs ${PROJECT_NAME} ${PROJECT_NAME}_static)
       IF (MYPACKAGE_DEBUG)
         MESSAGE (STATUS "[${PROJECT_NAME}-LIBRARY-DEBUG] Setting PUBLIC -D_NETBSD_SOURCE=1 on ${_target}")
       ENDIF ()
