@@ -7,8 +7,7 @@ function(auto_pc TARGET)
     MESSAGE (STATUS "[${PROJECT_NAME}-PKGCONFIG-DEBUG] Running on target ${TARGET}")
   ENDIF ()
 
-  string(JOIN "," PUBLIC_DEPENDENCIES ${${TARGET}_public_dependencies})
-
+  set(_build_dependencies ${${TARGET}_build_dependencies})
   file(CONFIGURE OUTPUT "pc.${TARGET}/CMakeLists.txt"
        CONTENT [[
 cmake_minimum_required(VERSION 3.16)
@@ -16,8 +15,51 @@ project(pc_@TARGET@)
 
 message(STATUS "[pc.@TARGET@/CMakeLists.txt] Starting")
 
-message(STATUS "[pc.@TARGET@/CMakeLists.txt] Requiring config of @TARGET@")
-include("$ENV{AUTO_PC_PATHS}/@TARGET@Config.cmake")
+set(CMAKE_MODULE_PATH $ENV{CMAKE_MODULE_PATH})
+message(STATUS "[pc.@TARGET@/CMakeLists.txt] Using CMAKE_MODULE_PATH: \"${CMAKE_MODULE_PATH}\"")
+foreach(_build_dependency @_build_dependencies@)
+  list(APPEND CMAKE_PREFIX_PATH "${CMAKE_MODULE_PATH}/${_build_dependency}")
+endforeach()
+message(STATUS "[pc.@TARGET@/CMakeLists.txt] Using CMAKE_PREFIX_PATH: \"${CMAKE_PREFIX_PATH}\"")
+
+message(STATUS "[pc.@TARGET@/CMakeLists.txt] Requiring config of @TARGET@ using $ENV{AUTO_PC_CMAKE_DIR}/@TARGET@Config.cmake")
+include("$ENV{AUTO_PC_CMAKE_DIR}/@TARGET@Config.cmake")
+
+#
+# I do not know why $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_LINK_LIBRARIES>>,$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:INTERFACE_LINK_LIBRARIES>,REPLACE,".*::","">,>,>
+# do not work
+#
+GET_TARGET_PROPERTY(_interface_link_libraries @TARGET@::@TARGET@ INTERFACE_LINK_LIBRARIES)
+SET(_target_computed_dependencies)
+FOREACH(_target ${_interface_link_libraries})
+  IF (TARGET ${_target})
+    GET_TARGET_PROPERTY(_target_location ${_target} LOCATION)
+	cmake_path(GET _target_location FILENAME _target_filename)
+	get_filename_component(_target_location_we ${_target_filename} NAME_WE)
+    LIST(APPEND _target_computed_dependencies  ${_target_location_we})
+  ENDIF ()
+ENDFOREACH()
+IF (_target_computed_dependencies)
+  MESSAGE (STATUS "[pc.@TARGET@/CMakeLists.txt] Setting @TARGET@::@TARGET@ computed dependencies: ${_target_computed_dependencies}")
+  SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_DEPENDENCIES ${_target_computed_dependencies})
+ENDIF ()
+
+GET_TARGET_PROPERTY(_interface_link_libraries @TARGET@::@TARGET@_static INTERFACE_LINK_LIBRARIES)
+SET(_target_computed_dependencies_static)
+FOREACH(_target ${_interface_link_libraries})
+  IF (TARGET ${_target})
+    GET_TARGET_PROPERTY(_target_location ${_target} LOCATION)
+	cmake_path(GET _target_location FILENAME _target_filename)
+	get_filename_component(_target_location_we ${_target_filename} NAME_WE)
+    LIST(APPEND _target_computed_dependencies_static  ${_target_location_we})
+  ENDIF ()
+ENDFOREACH()
+IF (_target_computed_dependencies_static)
+  MESSAGE (STATUS "[pc.@TARGET@/CMakeLists.txt] Setting @TARGET@::@TARGET@ static computed dependencies: ${_target_computed_dependencies_static}")
+  SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_DEPENDENCIES_STATIC ${_target_computed_dependencies_static})
+ENDIF ()
+
+MESSAGE (STATUS "[pc.@TARGET@/CMakeLists.txt] All targets: ${all_targets}")
 
 # Cflags: $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_INCLUDE_DIRECTORIES>>,-I$<JOIN:$<TARGET_PROPERTY:INTERFACE_INCLUDE_DIRECTORIES>, -I>,> $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
 # Cflags.private: $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_INCLUDE_DIRECTORIES>>,-I$<JOIN:$<TARGET_PROPERTY:INTERFACE_INCLUDE_DIRECTORIES>, -I>,> $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,> -D@TARGET@_STATIC
@@ -38,7 +80,8 @@ man1dir=${prefix}/@CMAKE_INSTALL_MANDIR@1
 man2dir=${prefix}/@CMAKE_INSTALL_MANDIR@2
 
 Name: @TARGET@
-Requires: @PUBLIC_DEPENDENCIES@
+Requires: $<IF:$<BOOL:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES>>,$<JOIN:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES>,>,>
+Requires.private: $<IF:$<BOOL:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>>,$<JOIN:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>,>,>
 Cflags: -I${includedir} $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
 Cflags.private: -D@TARGET@_STATIC -I${includedir} $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
 Libs: -L${libdir} -l@TARGET@
@@ -50,16 +93,16 @@ Libs.private: -L${libdir} $<TARGET_LINKER_FILE_NAME:@TARGET@::@TARGET@_static>
     CONTENT [[
 file(REAL_PATH "$ENV{CMAKE_CURRENT_SOURCE_DIR}" cmake_install_prefix)
 file(REAL_PATH "$ENV{CMAKE_INSTALL_LIBDIR}" cmake_install_libdir)
-set(AUTO_PC_PATHS "${cmake_install_libdir}/cmake/@TARGET@")
+set(AUTO_PC_CMAKE_DIR "${cmake_install_libdir}/cmake/@TARGET@")
 set(AUTO_PC_PKGCONFIG_DIR "${cmake_install_libdir}/pkgconfig")
 file(REAL_PATH "@CMAKE_BINARY_DIR@" cmake_binary_dir) # Top-level binary dir
 file(REAL_PATH "@CMAKE_CURRENT_BINARY_DIR@" cmake_current_binary_dir)
 
 set(proj "${cmake_current_binary_dir}/pc.@TARGET@")
-set(ENV{AUTO_PC_PATHS} ${AUTO_PC_PATHS})
+set(ENV{AUTO_PC_CMAKE_DIR} ${AUTO_PC_CMAKE_DIR})
 set(ENV{AUTO_PC_PKGCONFIG_DIR} ${AUTO_PC_PKGCONFIG_DIR})
 set(ENV{AUTO_PC_INSTALL_PREFIX} ${cmake_install_prefix})
-execute_process(COMMAND "@CMAKE_COMMAND@" -S "${proj}" -B "${proj}/build")
+execute_process(COMMAND "@CMAKE_COMMAND@" -G "@CMAKE_GENERATOR@" -S "${proj}" -B "${proj}/build")
 message(STATUS "[pc.@TARGET@/post-install.cmake] Creating ${AUTO_PC_PKGCONFIG_DIR}/@TARGET@.pc")
 #
 # Revisit paths: CMake auto-discovery will set:
@@ -100,10 +143,20 @@ file(COPY "${proj}/build/@TARGET@.pc" DESTINATION ${AUTO_PC_PKGCONFIG_DIR})
     # First time: initialize fire_post_installs.cmake
     #
     FILE(WRITE ${FIRE_POST_INSTALL_CMAKE_PATH} [[]])
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_MODULE_PATH \$ENV{CMAKE_MODULE_PATH})\n")
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"Using CMAKE_MODULE_PATH=\\\"\${CMAKE_MODULE_PATH}\\\"\")\n")
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_INSTALL_PREFIX \$ENV{CMAKE_INSTALL_PREFIX})\n")
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"Using CMAKE_INSTALL_PREFIX=\\\"\${CMAKE_INSTALL_PREFIX}\\\"\")\n")
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_INSTALL_LIBDIR \$ENV{CMAKE_INSTALL_LIBDIR})\n")
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"Using CMAKE_INSTALL_LIBDIR=\\\"\${CMAKE_INSTALL_LIBDIR}\\\"\")\n")
   ENDIF ()
-  FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"Using CMAKE_INSTALL_PREFIX=\$ENV{CMAKE_INSTALL_PREFIX}\")\n")
-  FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"Using CMAKE_INSTALL_LIBDIR=\$ENV{CMAKE_INSTALL_LIBDIR}\")\n")
+  FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "\n")
+  FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_MODULE_PATH_ORIG \${CMAKE_MODULE_PATH})\n")
+  FOREACH(_public_dependency ${${TARGET}_public_dependencies})
+    FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "list(APPEND CMAKE_MODULE_PATH \"\${CMAKE_MODULE_PATH_ORIG}/${_public_dependency}\")\n")
+  ENDFOREACH()
   FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "include(${CMAKE_CURRENT_BINARY_DIR}/pc.${TARGET}/post-install.cmake)\n")
+  FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_MODULE_PATH \${CMAKE_MODULE_PATH_ORIG})\n")
   #
   # At each install we decrement the number of remaining post installs, and fire all of them when the number is 0
   # We CANNOT use CMAKE_INSTALL_PREFIX variable contrary to what is posted almost everywhere on the net: CPack will
@@ -130,33 +183,35 @@ file(COPY "${proj}/build/@TARGET@.pc" DESTINATION ${AUTO_PC_PKGCONFIG_DIR})
         message(STATUS \"Firing post-installs\")
         set(ENV{CMAKE_INSTALL_PREFIX} \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
         set(ENV{CMAKE_INSTALL_LIBDIR} \${CMAKE_INSTALL_LIBDIR})
-        execute_process(COMMAND \"${CMAKE_COMMAND}\" -P \"${FIRE_POST_INSTALL_CMAKE_PATH}\"  WORKING_DIRECTORY \$ENV{CMAKE_INSTALL_PREFIX})
+        execute_process(COMMAND \"${CMAKE_COMMAND}\" -G \"${CMAKE_GENERATOR}\" -P \"${FIRE_POST_INSTALL_CMAKE_PATH}\" WORKING_DIRECTORY \$ENV{CMAKE_INSTALL_PREFIX})
       endif ()
     else()
       # set(ENV{CMAKE_INSTALL_PREFIX} \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
       # set(ENV{CMAKE_INSTALL_LIBDIR} \${CMAKE_INSTALL_LIBDIR})
-      # execute_process(COMMAND \"${CMAKE_COMMAND}\" -P \"${FIRE_POST_INSTALL_CMAKE_PATH}\"  WORKING_DIRECTORY \$ENV{CMAKE_INSTALL_PREFIX})
+      # execute_process(COMMAND \"${CMAKE_COMMAND}\" -G \"${CMAKE_GENERATOR}\" -P \"${FIRE_POST_INSTALL_CMAKE_PATH}\"  WORKING_DIRECTORY \$ENV{CMAKE_INSTALL_PREFIX})
     endif()
   "
   COMPONENT LibraryComponent
   )
 
   SET (CPACK_PRE_BUILD_SCRIPT_PC_PATH ${CMAKE_CURRENT_BINARY_DIR}/cpack_pre_build_script_pc_${TARGET}.cmake)
-  FILE (WRITE ${CPACK_PRE_BUILD_SCRIPT_PC_PATH} "# Prevent a warning from GNUInstallDirs, unfortunately enable_language() is not scriptable\nset(CMAKE_SYSTEM_NAME ${CMAKE_SYSTEM_NAME})\nset(CMAKE_SIZEOF_VOID_P ${CMAKE_SIZEOF_VOID_P})\ninclude(GNUInstallDirs)\n# Hardcode LibraryComponent\nset(ENV{CMAKE_INSTALL_PREFIX} \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/LibraryComponent\")\nset(ENV{CMAKE_INSTALL_LIBDIR} \${CMAKE_INSTALL_LIBDIR})\nexecute_process(COMMAND \"${CMAKE_COMMAND}\" -P \"${FIRE_POST_INSTALL_CMAKE_PATH}\"  WORKING_DIRECTORY \$ENV{CMAKE_INSTALL_PREFIX})\n")
+  FILE (WRITE  ${CPACK_PRE_BUILD_SCRIPT_PC_PATH} "# Content of this file is overwriten at cpack install using CPACK_INSTALL_SCRIPT\n")
   LIST (APPEND CPACK_PRE_BUILD_SCRIPTS ${CPACK_PRE_BUILD_SCRIPT_PC_PATH})
   SET (CPACK_PRE_BUILD_SCRIPTS ${CPACK_PRE_BUILD_SCRIPTS} PARENT_SCOPE)
 endfunction()
 
 MACRO (MYPACKAGEPKGCONFIGEXPORT)
-  #
-  # We depend on CMake exports
-  #
-  IF (NOT CMAKE_VERSION VERSION_LESS "3.26")
-    MYPACKAGECMAKEEXPORT()
-    auto_pc(${PROJECT_NAME})
-    # Clean up install path
-    install(CODE [[ file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/_auto_pc") ]])
-  ELSE ()
-    MESSAGE (AUTHOR_WARNING "Pkgconfig export requires version >= 3.26")
+  IF (NOT ${PROJECT_NAME}_NO_CONFIGEXPORT)
+    #
+    # We depend on CMake exports
+    #
+    IF (NOT CMAKE_VERSION VERSION_LESS "3.27")
+      MYPACKAGECMAKEEXPORT()
+      auto_pc(${PROJECT_NAME})
+      # Clean up install path
+      install(CODE [[ file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/_auto_pc") ]])
+    ELSE ()
+      MESSAGE (AUTHOR_WARNING "Pkgconfig export requires version >= 3.26")
+    ENDIF ()
   ENDIF ()
 ENDMACRO ()
