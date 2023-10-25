@@ -1,5 +1,5 @@
 MACRO (MYPACKAGECMAKEEXPORT)
-  IF (NOT MYPACKAGECMAKEEXPORT_${PROJECT_NAME}_DONE)
+  IF ((NOT ${PROJECT_NAME}_NO_CONFIGEXPORT) AND (NOT MYPACKAGECMAKEEXPORT_${PROJECT_NAME}_DONE))
     SET (MYPACKAGECMAKEEXPORT_${PROJECT_NAME}_DONE TRUE)
 
     IF (NOT CMAKE_VERSION VERSION_LESS "3.26")
@@ -19,8 +19,9 @@ MACRO (MYPACKAGECMAKEEXPORT)
       #
       # Explicit public dependencies
       #
-      FOREACH (_public_dependency ${${PROJECT_NAME}_public_dependencies})
-        STRING (APPEND _target_cmake_in "find_package(${_public_dependency} REQUIRED)")
+      FOREACH (_build_dependency ${${PROJECT_NAME}_build_dependencies})
+        GET_PROPERTY(_build_dependency_version GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${_build_dependency}_VERSION)
+        STRING (APPEND _target_cmake_in "find_package(${_build_dependency} ${_build_dependency_version} REQUIRED)")
         STRING (APPEND _target_cmake_in [[
 
 ]])
@@ -36,7 +37,7 @@ MACRO (MYPACKAGECMAKEEXPORT)
         COMPONENT LibraryComponent)
       INCLUDE (CMakePackageConfigHelpers)
       IF (MYPACKAGE_DEBUG)
-        MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Generating ${PROJECT_NAME}Config.cmake")
+        MESSAGE (STATUS "[${PROJECT_NAME}-CMAKEEXPORT-DEBUG] Generating ${PROJECT_NAME}Config.cmake")
       ENDIF ()
       CONFIGURE_PACKAGE_CONFIG_FILE(${TARGET_CMAKE_IN}
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
@@ -45,12 +46,12 @@ MACRO (MYPACKAGECMAKEEXPORT)
         NO_CHECK_REQUIRED_COMPONENTS_MACRO
       )
       IF (MYPACKAGE_DEBUG)
-        MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Generating ${PROJECT_NAME}ConfigVersion.cmake")
+        MESSAGE (STATUS "[${PROJECT_NAME}-CMAKEEXPORT-DEBUG] Generating ${PROJECT_NAME}ConfigVersion.cmake")
       ENDIF ()
       WRITE_BASIC_PACKAGE_VERSION_FILE (
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-        VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
-        COMPATIBILITY SameMinorVersion
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
       )
       INSTALL (FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
