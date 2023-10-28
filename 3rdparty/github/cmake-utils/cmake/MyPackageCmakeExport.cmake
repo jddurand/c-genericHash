@@ -19,13 +19,43 @@ MACRO (MYPACKAGECMAKEEXPORT)
       #
       # Explicit public dependencies
       #
-      FOREACH (_build_dependency ${${PROJECT_NAME}_build_dependencies})
-        GET_PROPERTY(_build_dependency_version GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${_build_dependency}_VERSION)
-        STRING (APPEND _target_cmake_in "find_package(${_build_dependency} ${_build_dependency_version} REQUIRED)")
+      STRING (APPEND _target_cmake_in "set(${PROJECT_NAME}_PACKAGE_DEPENDENCIES \"${${PROJECT_NAME}_package_dependencies}\")")
+      STRING (APPEND _target_cmake_in [[
+
+]])
+      IF (${PROJECT_NAME}_package_dependencies)
+        STRING (APPEND _target_cmake_in "include(CMakeFindDependencyMacro)")
         STRING (APPEND _target_cmake_in [[
 
 ]])
-      ENDFOREACH ()
+        FOREACH (_package_dependency ${${PROJECT_NAME}_package_dependencies})
+          GET_PROPERTY(_package_dependency_version GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${_package_dependency}_VERSION)
+          GET_PROPERTY(_package_dependency_version_major GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${_package_dependency}_VERSION_MAJOR)
+          GET_PROPERTY(_package_dependency_version_minor GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${_package_dependency}_VERSION_MINOR)
+          STRING (APPEND _target_cmake_in [[
+
+]])
+          STRING (APPEND _target_cmake_in "set(${PROJECT_NAME}_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION ${_package_dependency_version})")
+          STRING (APPEND _target_cmake_in [[
+
+]])
+          STRING (APPEND _target_cmake_in "set(${PROJECT_NAME}_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION_MAJOR ${_package_dependency_version_major})")
+          STRING (APPEND _target_cmake_in [[
+
+]])
+          STRING (APPEND _target_cmake_in "set(${PROJECT_NAME}_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION_MINOR ${_package_dependency_version_minor})")
+          STRING (APPEND _target_cmake_in [[
+
+]])
+          STRING (APPEND _target_cmake_in "find_dependency(${_package_dependency} \${${PROJECT_NAME}_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION})")
+          STRING (APPEND _target_cmake_in [[
+
+]])
+        ENDFOREACH ()
+      ENDIF ()
+      STRING (APPEND _target_cmake_in [[
+
+]])
       STRING (APPEND _target_cmake_in "include(\"\${CMAKE_CURRENT_LIST_DIR}/${_export_targets}.cmake\"\)")
       STRING (APPEND _target_cmake_in [[
 

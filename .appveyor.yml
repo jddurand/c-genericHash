@@ -117,7 +117,7 @@ test_script:
   - cd C:\projects\%APPVEYOR_PROJECT_NAME%
   - nmake check
   - nmake install
-  - cpack
+  - nmake package
   - for %%a in ("*.exe") do ren "%%~a" "%%~Na-%_CC%%%~Xa"
 
 on_failure:
