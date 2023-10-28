@@ -32,8 +32,11 @@ jobs:
     - name: Check
       run: make check VERBOSE=1
 
+    - name: Install
+      run: sudo make install VERBOSE=1
+
     - name: Package
-      run: cpack
+      run: make package VERBOSE=1
 
     - name: Look for dumps
       run: |
