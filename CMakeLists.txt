@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED (VERSION 3.15.0 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED (VERSION 3.26.0 FATAL_ERROR)
 PROJECT(genericHash VERSION 1.0.77 LANGUAGES C)
 IF (NOT MYPACKAGEBOOTSTRAP_DONE)
   INCLUDE ("3rdparty/github/cmake-utils/cmake/MyPackageBootstrap.cmake")
@@ -15,13 +15,19 @@ MYPACKAGETESTEXECUTABLE(genericHashTester test/genericHash.c)
 ################
 # Dependencies #
 ################
-MYPACKAGEDEPENDENCY (genericStack  "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/github/genericStack" LOCAL)
-MYPACKAGEDEPENDENCY (genericLogger "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/github/genericLogger" TESTS LOCAL)
+MYPACKAGEDEPENDENCY (genericStack  "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/github/genericStack" LOCAL IFACE PUBLIC IFACE_OBJECTS)  # present in public API
+MYPACKAGEDEPENDENCY (genericLogger "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/github/genericLogger" LOCAL TESTS PUBLIC SHARED_LIB) # used in tests
 
 #########
 # Tests #
 #########
 MYPACKAGECHECK(genericHashTester)
+
+##########
+# Export #
+##########
+MYPACKAGECMAKEEXPORT()
+MYPACKAGEPKGCONFIGEXPORT()
 
 #############
 # Packaging #
