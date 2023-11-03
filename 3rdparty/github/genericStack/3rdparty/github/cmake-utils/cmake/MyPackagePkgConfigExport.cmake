@@ -7,7 +7,6 @@ function(auto_pc TARGET)
     MESSAGE (STATUS "[${PROJECT_NAME}-PKGCONFIG-DEBUG] Running on target ${TARGET}")
   ENDIF ()
 
-  set(_package_dependencies ${${TARGET}_package_dependencies})
   file(CONFIGURE OUTPUT "pc.${TARGET}/CMakeLists.txt"
        CONTENT [[
 cmake_minimum_required(VERSION 3.16)
@@ -17,73 +16,99 @@ message(STATUS "[pc.@TARGET@/build] Starting")
 
 message(STATUS "[pc.@TARGET@/build] Initializing CMAKE_PREFIX_PATH with: $ENV{CMAKE_MODULE_ROOT_PATH_ENV}/@TARGET@")
 set(CMAKE_PREFIX_PATH "$ENV{CMAKE_MODULE_ROOT_PATH_ENV}/@TARGET@")
-foreach(_package_dependency @_package_dependencies@)
-  message(STATUS "[pc.@TARGET@/build] Appending CMAKE_PREFIX_PATH with: $ENV{CMAKE_MODULE_ROOT_PATH_ENV}/${_package_dependency}")
-  list(APPEND CMAKE_PREFIX_PATH "$ENV{CMAKE_MODULE_ROOT_PATH_ENV}/${_package_dependency}")
-endforeach()
 
 message(STATUS "[pc.@TARGET@/build] Requiring @TARGET@")
 find_package(@TARGET@ REQUIRED)
-message(STATUS "[pc.@TARGET@/build] @TARGET@ Version: ${@TARGET@_VERSION}")
-message(STATUS "[pc.@TARGET@/build] @TARGET@ Package dependencies: ${@TARGET@_PACKAGE_DEPENDENCIES}")
-set(_target_computed_package_dependencies)
-FOREACH(_package_dependency ${@TARGET@_PACKAGE_DEPENDENCIES})
-  message(STATUS "[pc.@TARGET@/build] @TARGET@ Package dependency: ${_package_dependency}, Version: ${@TARGET@_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION}")
-  list(APPEND _target_computed_package_dependencies "${_package_dependency} = ${@TARGET@_PACKAGE_DEPENDENCY_${_package_dependency}_VERSION}")
-ENDFOREACH()
-if(_target_computed_package_dependencies)
-  SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_PACKAGE_DEPENDENCIES ${_target_computed_package_dependencies})
-endif()
+
 #
-# I do not know why $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_LINK_LIBRARIES>>,$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:INTERFACE_LINK_LIBRARIES>,REPLACE,".*::","">,>,>
-# do not work
+# It is important to do static before shared, because shared will reuse static properties
 #
-GET_TARGET_PROPERTY(_interface_link_libraries @TARGET@::@TARGET@ INTERFACE_LINK_LIBRARIES)
-SET(_target_computed_dependencies)
-FOREACH(_target ${_interface_link_libraries})
-  IF (TARGET ${_target})
-    GET_TARGET_PROPERTY(_target_location ${_target} LOCATION)
-    string(REGEX REPLACE "::.*" "" _package_dependency ${_target})
-    MESSAGE(STATUS "[@TARGET@::@TARGET@/${_target}] Location: ${_target_location}")
-    cmake_path(GET _target_location FILENAME _target_filename)
-    get_filename_component(_target_filename_we ${_target_filename} NAME_WE)
-    if(NOT ("x${CMAKE_SHARED_LIBRARY_PREFIX}" STREQUAL "x"))
-      string(REGEX REPLACE "^${CMAKE_SHARED_LIBRARY_PREFIX}" "" _target_filename_we ${_target_filename_we})
+foreach(_target_type iface static shared)
+  set(_target @TARGET@::@TARGET@_${_target_type})
+  if(TARGET ${_target})
+    get_target_property(_interface_link_libraries ${_target} INTERFACE_LINK_LIBRARIES)
+    message(STATUS "[pc.@TARGET@/build] ${_target} INTERFACE_LINK_LIBRARIES: ${_interface_link_libraries}")
+    set(_computed_requires)
+    foreach(_interface_link_library ${_interface_link_libraries})
+      if(TARGET ${_interface_link_library})
+        string(REGEX REPLACE ".*::" "" _computed_require ${_interface_link_library})
+        list(APPEND _computed_requires ${_computed_require})
+      endif()
+    endforeach()
+    #
+    # iface produce no output file
+    # static produces @TARGET@_static
+    # shared produces @TARGET@
+    #
+    set_target_properties(${_target} PROPERTIES PC_NAME "@TARGET@_${_target_type}")
+    if(${_target_type} STREQUAL "iface")
+      set_target_properties(${_target} PROPERTIES PC_DESCRIPTION "@TARGET@ headers")
+    elseif(${_target_type} STREQUAL "shared")
+      set_target_properties(${_target} PROPERTIES PC_DESCRIPTION "@TARGET@ dynamic library")
+    elseif(${_target_type} STREQUAL "static")
+      set_target_properties(${_target} PROPERTIES PC_DESCRIPTION "@TARGET@ static library")
+    else()
+      message(FATAL_ERROR "Unsupported target type ${_target_type}")
+    endif()
+    if (_computed_requires)
+      list(JOIN _computed_requires "," _pc_requires)
+      set_target_properties(${_target} PROPERTIES PC_REQUIRES "${_pc_requires}")
+    endif()
+    if(_target_type STREQUAL "shared")
+      #
+      # By definition the "static" target should already exist
+      #
+      set(_target_static @TARGET@::@TARGET@_static)
+      if(TARGET ${_target_static})
+        #
+        # Requires.private
+        #
+        get_target_property(_pc_requires_private ${_target_static} PC_REQUIRES)
+        if(_pc_requires_private)
+          set_target_properties(${_target} PROPERTIES PC_REQUIRES_PRIVATE "${_pc_requires_private}")
+        endif()
+        #
+        # Cflags.private
+        #
+        get_target_property(_pc_interface_compile_definitions_private ${_target_static} INTERFACE_COMPILE_DEFINITIONS)
+        if(_pc_interface_compile_definitions_private)
+          set_target_properties(${_target} PROPERTIES PC_INTERFACE_COMPILE_DEFINITIONS_PRIVATE "${_pc_interface_compile_definitions_private}")
+        endif()
+        #
+        # Libs.private
+        #
+        get_target_property(_pc_libs_private ${_target_static} PC_LIBS)
+        if(_pc_libs_private)
+          set_target_properties(${_target} PROPERTIES PC_LIBS_PRIVATE "${_pc_libs_private}")
+        endif()
+      endif()
+    endif()
+    set_target_properties(${_target} PROPERTIES PC_VERSION "${@TARGET@_VERSION}")
+    set_target_properties(${_target} PROPERTIES PC_VERSION_MAJOR "${@TARGET@_VERSION_MAJOR}")
+
+    get_target_property(_location ${_target} LOCATION)
+    if(_location)
+      cmake_path(GET _location FILENAME _filename)
+      if(_target_type STREQUAL "shared")
+        get_filename_component(_filename_we ${_filename} NAME_WE)
+        if(NOT ("x${CMAKE_SHARED_LIBRARY_PREFIX}" STREQUAL "x"))
+          string(REGEX REPLACE "^${CMAKE_SHARED_LIBRARY_PREFIX}" "" _filename_we ${_filename_we})
+        endif()
+        set_target_properties(${_target} PROPERTIES PC_LIBS "-L\${libdir} -l${_filename_we}")
+      elseif(_target_type STREQUAL "static")
+        set_target_properties(${_target} PROPERTIES PC_LIBS "\${libdir}/${_filename}")
+      endif()
     endif()
     LIST(APPEND _target_computed_dependencies ${_target_filename_we})
-  ENDIF ()
-ENDFOREACH()
-IF (_target_computed_dependencies)
-  MESSAGE (STATUS "[pc.@TARGET@/build] Setting @TARGET@::@TARGET@ computed dependencies: ${_target_computed_dependencies}")
-  SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_DEPENDENCIES ${_target_computed_dependencies})
-ENDIF ()
+  endif()
+endforeach()
 
-GET_TARGET_PROPERTY(_interface_link_libraries @TARGET@::@TARGET@_static INTERFACE_LINK_LIBRARIES)
-SET(_target_computed_dependencies_static)
-FOREACH(_target ${_interface_link_libraries})
-  IF (TARGET ${_target})
-    GET_TARGET_PROPERTY(_target_location ${_target} LOCATION)
-    string(REGEX REPLACE "::.*" "" _package_dependency ${_target})
-    MESSAGE(STATUS "[@TARGET@::@TARGET@_static/${_target}] Location: ${_target_location}")
-    cmake_path(GET _target_location FILENAME _target_filename)
-    get_filename_component(_target_filename_we ${_target_filename} NAME_WE)
-    if(NOT ("x${CMAKE_STATIC_LIBRARY_PREFIX}" STREQUAL "x"))
-      string(REGEX REPLACE "^${CMAKE_STATIC_LIBRARY_PREFIX}" "" _target_filename_we ${_target_filename_we})
-    endif()
-    LIST(APPEND _target_computed_dependencies_static ${_target_filename_we})
-  ENDIF ()
-ENDFOREACH()
-IF (_target_computed_dependencies_static)
-  MESSAGE (STATUS "[pc.@TARGET@/build] Setting @TARGET@::@TARGET@ static computed dependencies: ${_target_computed_dependencies_static}")
-  SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_DEPENDENCIES_STATIC ${_target_computed_dependencies_static})
-ENDIF ()
-
-SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_VERSION ${@TARGET@_VERSION})
-SET_TARGET_PROPERTIES(@TARGET@::@TARGET@ PROPERTIES COMPUTED_VERSION_MAJOR ${@TARGET@_VERSION_MAJOR})
-
-set(TARGET_VERSION_MAJOR ${@TARGET@_VERSION_MAJOR})
-message(STATUS "[pc.@TARGET@/build] Generating ${CMAKE_CURRENT_BINARY_DIR}/@TARGET@-${TARGET_VERSION_MAJOR}.pc")
-file(GENERATE OUTPUT @TARGET@-${@TARGET@_VERSION_MAJOR}.pc
+foreach(_target_type iface static shared)
+  set(_target @TARGET@::@TARGET@_${_target_type})
+  if(TARGET ${_target})
+    set(_file @TARGET@_${_target_type}.pc)
+    message(STATUS "[pc.@TARGET@/build] Generating ${_file}")
+    file(GENERATE OUTPUT ${_file}
      CONTENT [=[
 prefix=${pcfiledir}/../..
 exec_prefix=${prefix}
@@ -95,36 +120,32 @@ mandir=${prefix}/@CMAKE_INSTALL_MANDIR@
 man1dir=${prefix}/@CMAKE_INSTALL_MANDIR@1
 man2dir=${prefix}/@CMAKE_INSTALL_MANDIR@2
 
-Name: @TARGET@-$<TARGET_PROPERTY:COMPUTED_VERSION_MAJOR>
-Version: $<TARGET_PROPERTY:COMPUTED_VERSION>
-Requires: $<IF:$<BOOL:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES>>,$<JOIN:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES>,>,>
-Requires.private: $<IF:$<BOOL:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>>,$<JOIN:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>,>,>
+Name: $<TARGET_PROPERTY:PC_NAME>
+Description: $<TARGET_PROPERTY:PC_DESCRIPTION>
+Version: $<TARGET_PROPERTY:PC_VERSION>
+Requires: $<IF:$<BOOL:$<TARGET_PROPERTY:PC_REQUIRES>>,$<TARGET_PROPERTY:PC_REQUIRES>,>
+Requires.private: $<IF:$<BOOL:$<TARGET_PROPERTY:PC_REQUIRES_PRIVATE>>,$<TARGET_PROPERTY:PC_REQUIRES_PRIVATE>,>
 Cflags: -I${includedir} $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
-Cflags.private: -D@TARGET@_STATIC -I${includedir} $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
-Libs: -L${libdir} -l@TARGET@-$<TARGET_PROPERTY:COMPUTED_VERSION_MAJOR>
-Libs.private: ${libdir}/$<TARGET_LINKER_FILE_NAME:@TARGET@::@TARGET@_static>
+Cflags.private: $<IF:$<BOOL:$<TARGET_PROPERTY:PC_INTERFACE_COMPILE_DEFINITIONS_PRIVATE>>,-I${includedir} -D$<JOIN:$<TARGET_PROPERTY:PC_INTERFACE_COMPILE_DEFINITIONS_PRIVATE>, -D>,>
+Libs: $<IF:$<BOOL:$<TARGET_PROPERTY:PC_LIBS>>,$<TARGET_PROPERTY:PC_LIBS>,>
+Libs.private: $<IF:$<BOOL:$<TARGET_PROPERTY:PC_LIBS_PRIVATE>>,$<TARGET_PROPERTY:PC_LIBS_PRIVATE>,>
+]=] TARGET ${_target} NEWLINE_STYLE LF)
 
-Name: @TARGET@_static-$<TARGET_PROPERTY:COMPUTED_VERSION_MAJOR>
-Version: $<TARGET_PROPERTY:COMPUTED_VERSION>
-Requires: $<IF:$<BOOL:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>>,$<JOIN:$<TARGET_PROPERTY:COMPUTED_DEPENDENCIES_STATIC>,>,>
-Cflags: -D@TARGET@_STATIC -I${includedir} $<IF:$<BOOL:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>>,-D$<JOIN:$<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>, -D>,>
-Libs: ${libdir}/$<TARGET_LINKER_FILE_NAME:@TARGET@::@TARGET@_static>
-]=] TARGET "@TARGET@::@TARGET@")
+  endif()
+endforeach()
 ]] @ONLY NEWLINE_STYLE LF)
 
-  set(TARGET_VERSION_MAJOR ${${TARGET}_VERSION_MAJOR})
   file(CONFIGURE OUTPUT "pc.${TARGET}/post-install.cmake"
     CONTENT [[
-set(AUTO_PC_PKGCONFIG_DIR "$ENV{DESTDIR}$ENV{CMAKE_INSTALL_PREFIX_ENV}/$ENV{CMAKE_INSTALL_LIBDIR_ENV}/pkgconfig")
-message(STATUS "[pc.@TARGET@/post-install.cmake] AUTO_PC_PKGCONFIG_DIR: ${AUTO_PC_PKGCONFIG_DIR}")
 set(proj "@CMAKE_CURRENT_BINARY_DIR@/pc.@TARGET@")
 message(STATUS "[pc.@TARGET@/post-install.cmake] Building in ${proj}/build")
 execute_process(COMMAND "@CMAKE_COMMAND@" -G "@CMAKE_GENERATOR@" -S "${proj}" -B "${proj}/build")
-message(STATUS "[pc.@TARGET@/post-install.cmake] Copying to ${AUTO_PC_PKGCONFIG_DIR}/@TARGET@-@TARGET_VERSION_MAJOR@.pc")
-file(COPY "${proj}/build/@TARGET@-@TARGET_VERSION_MAJOR@.pc" DESTINATION ${AUTO_PC_PKGCONFIG_DIR})
 ]] @ONLY NEWLINE_STYLE LF)
 
   SET (FIRE_POST_INSTALL_CMAKE_PATH ${CMAKE_CURRENT_BINARY_DIR}/fire_post_install.cmake)
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-PKGCONFIG-DEBUG] Generating ${FIRE_POST_INSTALL_CMAKE_PATH}")
+  ENDIF ()
   FILE(WRITE  ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"[fire_post_install.cmake] \\\$ENV{DESTDIR}: \\\"\$ENV{DESTDIR}\\\"\")\n")
   FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "set(CMAKE_INSTALL_PREFIX \"\$ENV{CMAKE_INSTALL_PREFIX_ENV}\")\n")
   FILE(APPEND ${FIRE_POST_INSTALL_CMAKE_PATH} "message(STATUS \"[fire_post_install.cmake] CMAKE_INSTALL_PREFIX: \\\"\${CMAKE_INSTALL_PREFIX}\\\"\")\n")
@@ -164,13 +185,19 @@ file(COPY "${proj}/build/@TARGET@-@TARGET_VERSION_MAJOR@.pc" DESTINATION ${AUTO_
   #
   # Generate a file that will be overwriten by the post-install scripts
   #
-  SET (FIRE_POST_INSTALL_PKGCONFIG_PATH ${CMAKE_CURRENT_BINARY_DIR}/pc.${TARGET}/build/${TARGET}-${${TARGET}_VERSION_MAJOR}.pc)
-  FILE (WRITE ${FIRE_POST_INSTALL_PKGCONFIG_PATH} "# Content of this file is overwriten during install or package phases")
-  INSTALL (FILES
-    ${FIRE_POST_INSTALL_PKGCONFIG_PATH}
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
-    COMPONENT LibraryComponent
-  )
+  FOREACH (_target_type iface static shared)
+    IF (TARGET ${TARGET}_${_target_type})
+      SET (FIRE_POST_INSTALL_PKGCONFIG_PATH ${CMAKE_CURRENT_BINARY_DIR}/pc.${TARGET}/build/${TARGET}_${_target_type}.pc)
+      IF (MYPACKAGE_DEBUG)
+        MESSAGE (STATUS "[${PROJECT_NAME}-PKGCONFIG-DEBUG] Generating dummy ${FIRE_POST_INSTALL_PKGCONFIG_PATH}")
+      ENDIF ()
+      FILE (WRITE ${FIRE_POST_INSTALL_PKGCONFIG_PATH} "# Content of this file is overwriten during install or package phases")
+      IF (MYPACKAGE_DEBUG)
+        MESSAGE (STATUS "[${PROJECT_NAME}-PKGCONFIG-DEBUG] INSTALL (FILES ${FIRE_POST_INSTALL_PKGCONFIG_PATH} DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT LibraryComponent)")
+      ENDIF ()
+      INSTALL (FILES ${FIRE_POST_INSTALL_PKGCONFIG_PATH} DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT LibraryComponent)
+    ENDIF ()
+  ENDFOREACH ()
 
   SET (CPACK_PRE_BUILD_SCRIPT_PC_PATH ${CMAKE_CURRENT_BINARY_DIR}/cpack_pre_build_script_pc_${TARGET}.cmake)
   FILE (WRITE  ${CPACK_PRE_BUILD_SCRIPT_PC_PATH} "# Content of this file is overwriten during package phase")
@@ -179,17 +206,6 @@ file(COPY "${proj}/build/@TARGET@-@TARGET_VERSION_MAJOR@.pc" DESTINATION ${AUTO_
 endfunction()
 
 MACRO (MYPACKAGEPKGCONFIGEXPORT)
-  IF (NOT ${PROJECT_NAME}_NO_CONFIGEXPORT)
-    #
-    # We depend on CMake exports
-    #
-    IF (NOT CMAKE_VERSION VERSION_LESS "3.27")
-      MYPACKAGECMAKEEXPORT()
-      auto_pc(${PROJECT_NAME})
-      # Clean up install path
-      install(CODE [[ file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/_auto_pc") ]])
-    ELSE ()
-      MESSAGE (AUTHOR_WARNING "Pkgconfig export requires version >= 3.26")
-    ENDIF ()
-  ENDIF ()
+  MYPACKAGECMAKEEXPORT()
+  auto_pc(${PROJECT_NAME})
 ENDMACRO ()

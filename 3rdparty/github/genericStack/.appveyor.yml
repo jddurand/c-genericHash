@@ -4,7 +4,7 @@ clone_depth: 100     # For other git providers
 # -------------------------------------------------------------------------------------------------------------------
 #
 #  Image              "Visual Studio 2013"     "Visual Studio 2015"         "Visual Studio 2017" "Visual Studio 2019" "Visual Studio 2022"
-#  CMake               C.f. https://www.appveyor.com/docs/windows-images-software/
+#  CMake               C.f. https://www.appveyor.com/docs/windows-images-software/ WE REQUIRES CMAKE_VERSION 3.26 AT LEAST
 #  Visual C++          2008/2010/2012/2013      2008/2010/2012/2013/2015     2015/2017            2019                 2022
 #
 # Note that 2010 x64 will not have redistributables because they are absent from AppVeyor image.
@@ -30,22 +30,22 @@ environment:
      _ARCH: x64
      _GENERATOR: "NMake Makefiles"
      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
-   - _CC: VS2017
-     _ARCH: x86
-     _GENERATOR: "NMake Makefiles"
-     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-   - _CC: VS2017
-     _ARCH: x64
-     _GENERATOR: "NMake Makefiles"
-     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-   - _CC: VS2015
-     _ARCH: x86
-     _GENERATOR: "NMake Makefiles"
-     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-   - _CC: VS2015
-     _ARCH: x64
-     _GENERATOR: "NMake Makefiles"
-     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+#  - _CC: VS2017
+#    _ARCH: x86
+#    _GENERATOR: "NMake Makefiles"
+#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+#  - _CC: VS2017
+#    _ARCH: x64
+#    _GENERATOR: "NMake Makefiles"
+#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+#  - _CC: VS2015
+#    _ARCH: x86
+#    _GENERATOR: "NMake Makefiles"
+#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+#  - _CC: VS2015
+#    _ARCH: x64
+#    _GENERATOR: "NMake Makefiles"
+#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
 #   - _CC: VS2013
 #     _ARCH: x86
 #     _GENERATOR: "NMake Makefiles"
@@ -110,7 +110,7 @@ init:
 
 build_script:
   - cd C:\projects\%APPVEYOR_PROJECT_NAME%
-  - cmake -Wno-dev -G "%_GENERATOR%" -DCMAKE_BUILD_TYPE=Release .
+  - cmake -Wno-dev -G "%_GENERATOR%" -DCMAKE_BUILD_TYPE=RelWithDebInfo .
   - nmake
 
 test_script:

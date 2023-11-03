@@ -2,6 +2,12 @@
 # Paths - ensure MyPackage* are the ones distributed with THIS version of MyPackageBootstrap
 #
 IF (NOT MYPACKAGEBOOTSTRAP_DONE)
+  IF (CMAKE_VERSION VERSION_LESS "3.26")
+    #
+    # We need BUILD_LOCAL_INTERFACE
+    #
+    MESSAGE(FATAL_ERROR "CMake version >= 3.26 is required")
+  ENDIF ()
   SET (MYPACKAGEBOOTSTRAP_DONE TRUE)
   SET (source_dir "${CMAKE_CURRENT_LIST_DIR}")
   IF (MYPACKAGE_DEBUG)
@@ -74,13 +80,5 @@ IF (NOT MYPACKAGEBOOTSTRAP_DONE)
     COMMAND ${CMAKE_COMMAND} -E echo ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
     COMMAND ${CMAKE_COMMAND} -E echo ----------------------------------
     COMMAND ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1 ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
-    )
-    #
-    # Local interface keyword
-    #
-    IF (CMAKE_VERSION VERSION_LESS "3.26")
-      SET (build_local_interface "BUILD_INTERFACE")
-    ELSE ()
-      SET (build_local_interface "BUILD_LOCAL_INTERFACE")
-    ENDIF ()
+  )
 ENDIF ()
