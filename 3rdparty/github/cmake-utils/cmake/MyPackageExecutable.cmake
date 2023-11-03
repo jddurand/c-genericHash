@@ -4,72 +4,58 @@ MACRO (MYPACKAGEEXECUTABLE name)
       MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Source: ${_source}")
     ENDFOREACH ()
   ENDIF ()
+  #
+  # User-friendly name for an executable do not include the "_shared" word. We
+  # produce at most two executables:
+  # ${name} if there is a shared library or an iface interface
+  # ${name}_static if there is a static library
+  #
+  SET (_candidates)
+  IF ((TARGET ${PROJECT_NAME}_shared) OR (TARGET ${PROJECT_NAME}_iface))
+    LIST(APPEND _candidates ${name})
+  ENDIF ()
+  IF (TARGET ${PROJECT_NAME}_static)
+    LIST(APPEND _candidates ${name}_static)
+  ENDIF ()
 
-  FOREACH (_name ${name} ${name}_static)
+  FOREACH (_target ${_candidates})
     IF (MYPACKAGE_DEBUG)
-      MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${_name}")
+      MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${_target}")
     ENDIF ()
-    LIST (APPEND ${PROJECT_NAME}_EXECUTABLE ${_name})
-    ADD_EXECUTABLE (${_name} ${ARGN})
+    LIST (APPEND ${PROJECT_NAME}_EXECUTABLE ${_target})
+    ADD_EXECUTABLE (${_target} ${ARGN})
     IF (MYPACKAGE_DEBUG)
-      MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Set runtime output directory of ${_name} to ${LIBRARY_OUTPUT_PATH}")
+      MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] SET_TARGET_PROPERTIES (${_target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH})")
     ENDIF ()
-    SET_TARGET_PROPERTIES (${_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH})
-    IF (NOT CMAKE_VERSION VERSION_LESS "3.26")
-      INSTALL (
-	    TARGETS ${_name}
-        # EXPORT ${PROJECT_NAME}-targets
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT ApplicationComponent
-      )
-    ELSE ()
-      INSTALL (TARGETS ${_name}
-  	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	COMPONENT ApplicationComponent
-      )
-    ENDIF ()
+    SET_TARGET_PROPERTIES (${_target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH})
+    INSTALL (
+      TARGETS ${_target}
+      EXPORT ${PROJECT_NAME}-targets
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      COMPONENT ApplicationComponent
+    )
     SET (${PROJECT_NAME}_HAVE_APPLICATIONCOMPONENT TRUE CACHE INTERNAL "Have ApplicationComponent" FORCE)
  
-    IF (${_name} STREQUAL ${name})
-      IF (TARGET ${PROJECT_NAME})
+    IF (${_target} STREQUAL ${name})
+      IF (TARGET ${PROJECT_NAME}_shared)
         IF (MYPACKAGE_DEBUG)
-          MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${PROJECT_NAME} link library to ${_name}")
+          MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_shared)")
         ENDIF ()
-        TARGET_LINK_LIBRARIES(${_name} PUBLIC ${PROJECT_NAME})
+        TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_shared)
       ELSE ()
-        #
-        # Current project does not define a library
-        #
-        FOREACH (_include_directory ${CMAKE_CURRENT_BINARY_DIR}/output/include ${PROJECT_SOURCE_DIR}/include)
-          IF (MYPACKAGE_DEBUG)
-            MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${_include_directory} include dependency to ${_name}")
-          ENDIF ()
-		  TARGET_INCLUDE_DIRECTORIES(${_name} PUBLIC $<${build_local_interface}:${_include_directory}>)
-        ENDFOREACH ()
+        IF (MYPACKAGE_DEBUG)
+          MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_iface)")
+        ENDIF ()
+        TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_iface)
       ENDIF ()
     ENDIF ()
 
-    IF (${_name} STREQUAL ${name}_static)
-      IF (TARGET ${PROJECT_NAME}_static)
-        IF (MYPACKAGE_DEBUG)
-          MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${PROJECT_NAME}_static link library to ${_name}")
-        ENDIF ()
-        TARGET_LINK_LIBRARIES(${_name} PUBLIC ${PROJECT_NAME}_static)
-      ELSE ()
-        IF (MYPACKAGE_DEBUG)
-          MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Setting -D${PROJECT_NAME}_STATIC to ${_name}")
-        ENDIF ()
-        TARGET_COMPILE_DEFINITIONS(${_name} PUBLIC -D${PROJECT_NAME}_STATIC)
-        #
-        # Current project does not define a static library
-        #
-        FOREACH (_include_directory ${CMAKE_CURRENT_BINARY_DIR}/output/include ${PROJECT_SOURCE_DIR}/include)
-          IF (MYPACKAGE_DEBUG)
-            MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] Adding ${_include_directory} include dependency to ${_name}")
-          ENDIF ()
-		  TARGET_INCLUDE_DIRECTORIES(${_name} PUBLIC $<${build_local_interface}:${_include_directory}>)
-        ENDFOREACH ()
+    IF (${_target} STREQUAL ${name}_static)
+      IF (MYPACKAGE_DEBUG)
+        MESSAGE (STATUS "[${PROJECT_NAME}-EXECUTABLE-DEBUG] TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_static)")
       ENDIF ()
+      TARGET_LINK_LIBRARIES(${_target} PUBLIC ${PROJECT_NAME}_static)
     ENDIF ()
+
   ENDFOREACH ()
 ENDMACRO()
