@@ -21,12 +21,18 @@ MACRO (MYPACKAGESTART)
     MESSAGE (STATUS "[${PROJECT_NAME}-START-STATUS] Setted CMAKE_MODULE_PATH to ${CMAKE_MODULE_PATH}")
   ENDIF ()
   #
-  # General include output path
+  # General generated include output path
   #
   SET (INCLUDE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/output/include)
   IF (MYPACKAGE_DEBUG)
     MESSAGE (STATUS "[${PROJECT_NAME}-START-STATUS] Setted INCLUDE_OUTPUT_PATH to ${INCLUDE_OUTPUT_PATH}")
   ENDIF ()
+  #
+  # All public includes should be in one of these base directories
+  #
+  set(PUBLIC_HEADERS_SOURCE_DIRS ${PROJECT_SOURCE_DIR}/_include ${PROJECT_SOURCE_DIR}/include)
+  set(PUBLIC_HEADERS_GENERATED_DIRS ${INCLUDE_OUTPUT_PATH})
+  set(PUBLIC_HEADERS_BASE_DIRS ${PUBLIC_HEADERS_SOURCE_DIRS} ${PUBLIC_HEADERS_GENERATED_DIRS})
   #
   # General library output path
   #
@@ -154,59 +160,85 @@ MACRO (MYPACKAGESTART)
   ENDIF ()
   EXECUTE_PROCESS(COMMAND "${CMAKE_COMMAND}" -E make_directory "${INCLUDE_OUTPUT_PATH}/${PROJECT_NAME}")
   #
+  # We always create an interface library whose name is the current project name
+  #
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] ADD_LIBRARY(${PROJECT_NAME}_iface INTERFACE)")
+  ENDIF ()
+  ADD_LIBRARY(${PROJECT_NAME}_iface INTERFACE)
+  #
   # We consider that every .h file in the include directory is to be installed
   # unless it is starting with an '_'.
   #
-  FILE (GLOB_RECURSE _include include/*.h include/*.hpp)
-  FOREACH (_file ${_include})
-    IF (MYPACKAGE_DEBUG)
-      MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Checking include ${_file}")
-    ENDIF ()
-    #
-    # Hiden file
-    #
-    GET_FILENAME_COMPONENT(_basename ${_file} NAME)
-    STRING (REGEX MATCH "^_" _hiden ${_basename})
-    IF ("${_hiden}" STREQUAL "_")
-      IF (MYPACKAGE_DEBUG)
-        MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Skipping hiden include ${_file}")
+  SET (_public_headers)
+  SET (_private_headers)
+  FOREACH (_dir ${PUBLIC_HEADERS_SOURCE_DIRS})
+    FILE (GLOB_RECURSE _files ${_dir}/*.h ${_dir}/*.hpp)
+    FOREACH (_file ${_files})
+      #
+      # Hiden file
+      #
+      GET_FILENAME_COMPONENT(_basename ${_file} NAME)
+      STRING (REGEX MATCH "^_" _hiden ${_basename})
+      IF ("${_hiden}" STREQUAL "_")
+        LIST (APPEND _private_headers ${_file})
+        CONTINUE ()
       ENDIF ()
-      CONTINUE ()
-    ENDIF ()
-    #
-    # Internal file
-    #
-    GET_FILENAME_COMPONENT(_directory ${_file} DIRECTORY)
-    STRING (REGEX MATCH "/internal/?" _internal ${_directory})
-    IF (("${_internal}" STREQUAL "/internal") OR ("${_internal}" STREQUAL "/internal/"))
-      IF (MYPACKAGE_DEBUG)
-        MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Skipping internal include ${_file}")
+      #
+      # Internal file
+      #
+      GET_FILENAME_COMPONENT(_directory ${_file} DIRECTORY)
+      STRING (REGEX MATCH "/internal/?" _internal ${_directory})
+      IF (("${_internal}" STREQUAL "/internal") OR ("${_internal}" STREQUAL "/internal/"))
+        LIST (APPEND _private_headers ${_file})
+        CONTINUE ()
       ENDIF ()
-      CONTINUE ()
-    ENDIF ()
-    #
-    # Ok
-    #
-    FILE (RELATIVE_PATH _relfile ${PROJECT_SOURCE_DIR} ${_file})
-    GET_FILENAME_COMPONENT(_dir ${_relfile} DIRECTORY)
-    INSTALL(FILES ${_file} DESTINATION ${_dir} COMPONENT HeaderComponent)
-    SET (${PROJECT_NAME}_HAVE_HEADERCOMPONENT TRUE CACHE INTERNAL "Have HeaderComponent" FORCE)
-    IF (MYPACKAGE_DEBUG)
-      MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] Adding public header ${_file}")
-    ENDIF ()
+      #
+      # Public file
+      #
+      LIST (APPEND _public_headers ${_file})
+      SET (${PROJECT_NAME}_iface_HAVE_HEADERCOMPONENT TRUE CACHE INTERNAL "Have HeaderComponent" FORCE)
+      SET (${PROJECT_NAME}_HAVE_HEADERCOMPONENT TRUE CACHE INTERNAL "Have HeaderComponent" FORCE)
+    ENDFOREACH ()
   ENDFOREACH()
   #
-  # Make sure current project have a property associating its default directories
+  # Declaration of headers. Note that public headers can be either in current include dir, either in generated include dir.
   #
-  SET (_include_dirs)
-  FOREACH (_include_dir ${CMAKE_CURRENT_BINARY_DIR}/output/include ${PROJECT_SOURCE_DIR}/include)
-    GET_FILENAME_COMPONENT(_absolute_include_dir ${_include_dir} ABSOLUTE)
+  IF (_private_headers)
     IF (MYPACKAGE_DEBUG)
-      MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] MYPACKAGE_DEPENDENCY_${PROJECT_NAME}_INCLUDE_DIRS appended with ${_absolute_include_dir}")
+      MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] TARGET_SOURCES(${PROJECT_NAME}_iface PRIVATE FILE_SET private_headers BASE_DIRS ${PUBLIC_HEADERS_BASE_DIRS} TYPE HEADERS FILES ${_private_headers})")
     ENDIF ()
-    LIST (APPEND _include_dirs ${_absolute_include_dir})
-  ENDFOREACH ()
-  SET_PROPERTY(GLOBAL PROPERTY MYPACKAGE_DEPENDENCY_${PROJECT_NAME}_INCLUDE_DIRS ${_include_dirs})
+    TARGET_SOURCES(${PROJECT_NAME}_iface PRIVATE FILE_SET private_headers BASE_DIRS ${PUBLIC_HEADERS_BASE_DIRS} TYPE HEADERS FILES ${_private_headers})
+  ENDIF ()
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] TARGET_SOURCES(${PROJECT_NAME}_iface INTERFACE FILE_SET public_headers BASE_DIRS ${PUBLIC_HEADERS_BASE_DIRS} TYPE HEADERS FILES ${_public_headers})")
+  ENDIF ()
+  TARGET_SOURCES(${PROJECT_NAME}_iface INTERFACE FILE_SET public_headers BASE_DIRS ${PUBLIC_HEADERS_BASE_DIRS} TYPE HEADERS FILES ${_public_headers})
+  #
+  # Install
+  #
+  IF (_public_headers)
+    INSTALL (TARGETS ${PROJECT_NAME}_iface
+      EXPORT ${PROJECT_NAME}-targets
+      FILE_SET public_headers
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT HeaderComponent
+    )
+  ENDIF ()
+  #
+  # Include directories
+  #
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/output/include>)")
+  ENDIF ()
+  TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/output/include>)
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)")
+  ENDIF ()
+  TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+  IF (MYPACKAGE_DEBUG)
+    MESSAGE (STATUS "[${PROJECT_NAME}-START-DEBUG] TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)")
+  ENDIF ()
+  TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME}_iface INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
   #
   # We consider that if there is a README.pod, then it is a candidate for installation
   #
