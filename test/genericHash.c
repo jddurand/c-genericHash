@@ -3,7 +3,7 @@
 /* For the internal stacks to use heap memory */
 #define GENERICSTACK_DEFAULT_LENGTH 0
 /* This will define the use of __builtin_expect() or not on genericStack.h */
-#include "config.h"
+#include "test/config.h"
 #include "genericHash.h"
 #include <genericLogger.h>
 
