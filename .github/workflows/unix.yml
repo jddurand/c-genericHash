@@ -27,7 +27,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Configure
-      run: cmake -S . -B ../build_folder -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "Unix Makefiles" -DCMAKE_HELPERS_DEBUG=ON
+      run: cmake -S . -B ../build_folder -G "Unix Makefiles" --config ${{env.BUILD_TYPE}} -DCMAKE_HELPERS_DEBUG=ON
 
     - name: Dump CMakeCache.txt
       run: cat ../build_folder/CMakeCache.txt
