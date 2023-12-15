@@ -28,6 +28,9 @@ jobs:
     - name: Configure
       run: cmake -S . -B ../build_folder -G "${{matrix.cmake_generator}}" -A "${{matrix.cmake_generator_platform}}" -DCMAKE_HELPERS_DEBUG=ON
 
+    - name: Dump CMakeCache.txt
+      run: type ..\build_folder\CMakeCache.txt
+
     - name: Build
       run: cmake --build ../build_folder --config ${{env.BUILD_TYPE}}
 

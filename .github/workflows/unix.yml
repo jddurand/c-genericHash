@@ -29,6 +29,9 @@ jobs:
     - name: Configure
       run: cmake -S . -B ../build_folder -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "Unix Makefiles"
 
+    - name: Dump CMakeCache.txt
+      run: cat ../build_folder/CMakeCache.txt
+
     - name: Build
       run: cmake --build ../build_folder
 
