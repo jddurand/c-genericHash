@@ -11,7 +11,7 @@ clone_depth: 100     # For other git providers
 environment:
   CTEST_OUTPUT_ON_FAILURE: 1
   upload_token:
-    secure: 
+    secure:
   matrix:
    - _CC: VS2022
      _ARCH: x86
@@ -82,8 +82,8 @@ build:
 
 clone_folder: C:\projects\%APPVEYOR_PROJECT_NAME%
 
-# matrix:
-#   fast_finish: true # Immediately finish build once one of the jobs fails
+matrix:
+  fast_finish: true # Immediately finish build once one of the jobs fails
 
 init:
   - IF "%_CC%" == "VS2022" IF "%_ARCH%" == "x86" call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars32.bat"
@@ -105,10 +105,8 @@ init:
   - IF "%_CC%" == "VS2008" IF "%_ARCH%" == "x64" call "C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\bin\vcvarsx86_amd64.bat"
   - ECHO %PATH%
 
-#
-# We build using nmake, that is a multi-config generator, so we specify the build type using CMAKE_BUILD_TYPE
 build_script:
-  - cmake -S . -B build_folder -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "NMake Makefiles"
+  - cmake -S . -B build_folder -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "NMake Makefiles" -DCMAKE_HELPERS_DEBUG=ON
   - cmake --build build_folder
 
 after_build:

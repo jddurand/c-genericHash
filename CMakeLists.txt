@@ -1,4 +1,6 @@
 #
+# Multi-config generator, e.g. Visual Studio on Windows:
+#
 # cmake -S c-genericHash -B c-genericHash-build
 # cmake --build c-genericHash-build --config RelWithDebInfo
 # ctest --test-dir c-genericHash-build -C RelWithDebInfo
@@ -7,6 +9,17 @@
 # Others:
 #   cmake --install c-genericHash-build --config RelWithDebInfo --prefix `pwd`/c-genericHash-install
 # cmake --build c-genericHash-build --config RelWithDebInfo --target package
+#
+# Single-config generator, e.g. NMake Makefiles on Windows, Unix Makefiles on Linxu:
+#
+# cmake -S c-genericHash -B c-genericHash-build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+# cmake --build c-genericHash-build
+# ctest --test-dir c-genericHash-build
+# Windows:
+#   cmake --install c-genericHash-build --prefix %cd%/c-genericHash-install
+# Others:
+#   cmake --install c-genericHash-build --prefix `pwd`/c-genericHash-install
+# cmake --build c-genericHash-build --target package
 #
 cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
 project(genericHash VERSION 1.0.78 LANGUAGES C)
