@@ -106,7 +106,7 @@ init:
   - ECHO %PATH%
 
 build_script:
-  - cmake -S . -B build_folder -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "NMake Makefiles" -DCMAKE_HELPERS_DEBUG=ON
+  - cmake -S . -B build_folder -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "NMake Makefiles"
   - cmake --build build_folder
 
 after_build:
