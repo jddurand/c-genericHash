@@ -54,7 +54,7 @@ list(APPEND marpaESLIF_depends PUBLIC genericStack::genericStack)
 set(genericLogger_git https://github.com/jddurand/c-genericLogger.git)
 cmake_helpers_depend(genericLogger
   EXTERNALPROJECT_ADD_ARGS
-    GIT_REPOSITORY ${https://github.com/jddurand/c-genericLogger.git}
+    GIT_REPOSITORY ${genericLogger_git}
     GIT_SHALLOW TRUE
   FIND_PACKAGE_ARGS
     REQUIRED CONFIG
