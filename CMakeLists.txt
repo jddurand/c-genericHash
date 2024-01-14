@@ -44,7 +44,8 @@ cmake_helpers_depend(genericStack
     GIT_REPOSITORY ${genericStack_git}
     GIT_SHALLOW TRUE
   FIND_PACKAGE_ARGS
-    REQUIRED CONFIG
+    REQUIRED
+    CONFIG
 )
 list(APPEND marpaESLIF_find_dependencies "genericStack REQUIRED CONFIG")
 list(APPEND marpaESLIF_depends PUBLIC genericStack::genericStack)
@@ -57,7 +58,9 @@ cmake_helpers_depend(genericLogger
     GIT_REPOSITORY ${genericLogger_git}
     GIT_SHALLOW TRUE
   FIND_PACKAGE_ARGS
-    REQUIRED CONFIG
+    REQUIRED
+    CONFIG
+  MAKEAVAILABLE FALSE
 )
 #
 # Create library
