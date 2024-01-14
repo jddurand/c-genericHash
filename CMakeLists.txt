@@ -32,30 +32,50 @@ FetchContent_MakeAvailable(cmake-helpers)
 #
 # Dependencies
 #
+set(genericHash_depends)
+set(genericHash_depends_ext)
+set(genericHash_find_dependencies)
+#
+# genericStack: public dependency
+#
+set(genericStack_git https://github.com/jddurand/c-genericStack.git)
 cmake_helpers_depend(genericStack
-  EXTERNALPROJECT_ADD_ARGS GIT_REPOSITORY https://github.com/jddurand/c-genericStack.git GIT_SHALLOW TRUE
-  FIND_PACKAGE_ARGS REQUIRED CONFIG
+  EXTERNALPROJECT_ADD_ARGS
+    GIT_REPOSITORY ${genericStack_git}
+    GIT_SHALLOW TRUE
+  FIND_PACKAGE_ARGS
+    REQUIRED CONFIG
 )
+list(APPEND marpaESLIF_find_dependencies "genericStack REQUIRED CONFIG")
+list(APPEND marpaESLIF_depends PUBLIC genericStack::genericStack)
 #
-# Dependencies
+# Dependencies: test dependency
 #
+set(genericLogger_git https://github.com/jddurand/c-genericLogger.git)
 cmake_helpers_depend(genericLogger
-  EXTERNALPROJECT_ADD_ARGS GIT_REPOSITORY https://github.com/jddurand/c-genericLogger.git GIT_SHALLOW TRUE
-  FIND_PACKAGE_ARGS REQUIRED CONFIG
+  EXTERNALPROJECT_ADD_ARGS
+    GIT_REPOSITORY ${https://github.com/jddurand/c-genericLogger.git}
+    GIT_SHALLOW TRUE
+  FIND_PACKAGE_ARGS
+    REQUIRED CONFIG
 )
 #
 # Create library
 #
 cmake_helpers_library(genericHash
-  FIND_DEPENDENCIES "genericStack REQUIRED CONFIG"
-  DEPENDS PUBLIC genericStack::genericStack
+  FIND_DEPENDENCIES ${genericHash_find_dependencies}
+  DEPENDS           ${genericHash_depends}
+  DEPENDS_EXT       ${genericHash_depends_ext}
 )
 #
 # Create test executables
 #
 include(CTest)
 configure_file(test/config.h.in include/test/config.h)
-cmake_helpers_exe(genericHashTester TEST TRUE SOURCES test/genericHash.c DEPENDS PUBLIC genericLogger::genericLogger)
+cmake_helpers_exe(genericHashTester
+  TEST TRUE
+  SOURCES test/genericHash.c
+  DEPENDS PUBLIC genericLogger::genericLogger)
 #
 # Package
 #
