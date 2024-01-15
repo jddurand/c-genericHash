@@ -47,8 +47,8 @@ cmake_helpers_depend(genericStack
     REQUIRED
     CONFIG
 )
-list(APPEND marpaESLIF_find_dependencies "genericStack REQUIRED CONFIG")
-list(APPEND marpaESLIF_depends PUBLIC genericStack::genericStack)
+list(APPEND genericHash_find_dependencies "genericStack REQUIRED CONFIG")
+list(APPEND genericHash_depends PUBLIC genericStack::genericStack)
 #
 # Dependencies: test dependency
 #
