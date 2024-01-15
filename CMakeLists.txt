@@ -22,7 +22,7 @@
 # cmake --build c-genericHash-build --target package
 #
 cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
-project(genericHash VERSION 1.0.80 LANGUAGES C)
+project(genericHash VERSION 1.0.81 LANGUAGES C)
 #
 # Get library helper
 #
